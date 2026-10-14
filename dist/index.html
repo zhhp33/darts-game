@@ -29,7 +29,7 @@
         <div class="score-number" id="score">0</div>
         <div class="score-details"><span>投掷 <b id="shots">0</b></span><span>命中 <b id="accuracy">—</b></span></div>
       </div>
-      <div class="board-counter"><div><span class="live-dot"></span>盘上飞镖 <strong><span id="darts">0</span><small> / 12</small></strong></div><div class="counter-ticks" id="ticks" aria-hidden="true"></div></div>
+      <div class="board-counter"><div><span class="live-dot"></span>盘上飞镖 <strong id="darts">0</strong></div></div>
       <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
       <div class="power-panel">
         <div class="power-label"><span>拉弓力度</span><strong id="power-value">0<span>%</span></strong></div>
@@ -37,17 +37,17 @@
         <p id="power-hint">拉住弹弓，向后拖动</p>
       </div>
       <div class="pull-hint" id="pull-hint"><svg viewBox="0 0 28 34" aria-hidden="true"><path d="M14 2v26M5 20l9 9 9-9"/></svg><span>往后拉，松手发射</span></div>
-      <button id="replace" class="button replace-button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8m-4-4h8"/></svg>换个靶盘</button>
+      <button id="replace" class="button replace-button" title="换个靶盘，切换头像样式"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8m-4-4h8"/></svg>换个靶盘</button>
       <div class="loading" id="loading">正在挂上靶盘…</div>
     </section>
 
     <footer class="guide">
       <div class="guide-intro"><span class="mini-target" aria-hidden="true">◎</span><div><strong>拉满，来一发。</strong><p>往后拉出力度，调整方向，松手试试准头。</p></div></div>
-      <div class="rules"><span><i class="rule-dot bull"></i>靶心 <b>50分</b></span><span><i class="rule-dot normal"></i>盘面 <b>10分</b></span><span><i class="rule-dot smash"></i>90%力度 <b>碎盘</b></span><span><i class="rule-dot fall"></i>插满12支 <b>掉落</b></span></div>
+      <div class="rules"><span><i class="rule-dot bull"></i>靶心 <b>50分</b></span><span><i class="rule-dot normal"></i>盘面 <b>10分</b></span><span><i class="rule-dot smash"></i>红色外框 <b>5分</b></span><span><i class="rule-dot fall"></i>300%力度 <b>碎盘</b></span></div>
     </footer>
     <p class="footnote">随便投，尽情玩 <span>·</span> 飞偏了也没关系 <span class="keyboard-note"> / 方向键调整 · 空格发射</span></p>
     <noscript><p class="noscript">请开启浏览器的 JavaScript 来玩弹弓飞镖。</p></noscript>
   </main>
-  <script type="module" src="./game.js"></script>
+  <script type="module" src="./game.js?v=2"></script>
 </body>
 </html>
