@@ -84,6 +84,7 @@ function resize(){
   const cy=width<340?height*.42:width<600?height*.375:height*.351;
   view={cx:width*.5,cy,radius,maxPull:Math.min(156,height*.23,width*.30),slingScale:clamp(width/650,.72,1)};
   const origin=project({x:0,y:1.45,z:0});view.sx=origin.x;view.sy=origin.y;view.maxPull=Math.min(view.maxPull,height-view.sy-42);
+  ui.feedback.style.top=`${cy+radius*.96}px`;
 }
 function project(p){const scale=24/(16+p.z);return {x:view.cx+p.x*view.radius*scale,y:view.cy-(p.y-CONFIG.boardY)*view.radius*scale,scale};}
 
@@ -373,7 +374,7 @@ function frame(now){
       flight.time+=dt;
       if(flight.time>=flight.result.time){
         const result=flight.result;flight=null;const outcome=applyResult(state,result);if(outcome.shake)shakeUntil=clock+.16;recordWallHole(result);spawnDust(result.position,outcome.kind);playSound(outcome.kind==='smash'?'smash':result.force+1e-9>=CONFIG.smashForce?'full-impact':outcome.kind);
-        const cup=result.zone==='bull'?'特大杯！':result.zone==='rim'?'中杯！':'大杯！';
+        const cup=result.zone==='bull'?'特大杯':result.zone==='rim'?'中杯':'大杯';
         if(outcome.kind==='smash'){beginDestruction('smash');showFeedback('罗老师，别这样',`+${outcome.points}`,true,1.9);}
         else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback(cup,`+${outcome.points}`);}
         else if(result.hit)showFeedback(cup,`+${outcome.points}`);
@@ -381,7 +382,7 @@ function frame(now){
         updateHud();
       }
     }
-    if(effect){effect.time+=dt;if(effect.time>=CONFIG.replacementTime){freshBoard(false,state.darts.length>=CONFIG.dartLimit);}}
+    if(effect){effect.time+=dt;if(effect.time>=CONFIG.replacementTime){freshBoard(false,true);}}
     if(state.phase==='replacing'&&clock>=replaceUntil){state.phase='ready';updateHud();}
     if(feedbackUntil&&clock>feedbackUntil){ui.feedback.className='feedback';feedbackUntil=0;}
     const animating=flight||effect||particles.length||state.phase!=='ready'||clock<shakeUntil||clock-reboundAt<.35;
