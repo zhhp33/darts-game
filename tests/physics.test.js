@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CONFIG,makeShot,positionAt,resolveFlight,createGameState,applyResult,replaceBoard,constrainPull} from '../dist/physics.js';
+import {CONFIG,makeShot,positionAt,resolveFlight,createGameState,applyResult,replaceBoard,constrainPull,fullPowerTarget} from '../dist/physics.js';
 import {makeFragments,makeImpactCracks} from '../dist/fracture.js';
 function aimedShot(x=0,y=CONFIG.boardY,force=.65){const vz=4+13*force,t=CONFIG.depth/vz;return {x:0,y:1.45,z:0,vx:x/t,vy:(y-1.45+.5*CONFIG.gravity*t*t)/t,vz,force};}
 const hit=(force=1,x=0)=>resolveFlight(aimedShot(x,CONFIG.boardY,force));
@@ -23,7 +23,32 @@ test('force caps at 100%, full pull remains reachable, weak pull lands short',()
   assert.equal(makeShot({dx:0,dy:200,maxPull:100}).force,1);
   const weak=resolveFlight(makeShot({dx:0,dy:20,maxPull:100}));assert.equal(weak.hit,false);assert.equal(weak.surface,'floor');
   for(const force of [.45,.65,.8,.99,1]){const shot=makeShot({dx:0,dy:force*100,maxPull:100}),r=resolveFlight(shot);assert.equal(r.hit,true);assert.deepEqual(positionAt(shot,r.time),r.position);}
-  assert.equal(resolveFlight(makeShot({dx:0,dy:100,maxPull:100})).bull,true);
+  assert.equal(resolveFlight(makeShot({dx:0,dy:100,maxPull:100})).hit,true);
+});
+test('65–70% straight pulls stay near the bull; higher non-full power rises smoothly toward the upper red rim',()=>{
+  for(const force of [.65,.66,.675,.69,.7]){const r=resolveFlight(makeShot({dx:0,dy:force*100,maxPull:100}));assert.equal(r.zone,'bull');assert.ok(Math.abs(r.position.y-CONFIG.boardY)<.04);}
+  let previous=-Infinity;
+  for(let i=700;i<=999;i++){const shot=makeShot({dx:0,dy:i/10,maxPull:100}),r=resolveFlight(shot);assert.equal(r.hit,true);assert.ok(r.position.y>=previous-1e-9);assert.deepEqual(positionAt(shot,r.time),r.position);previous=r.position.y;}
+  assert.ok(previous-CONFIG.boardY>CONFIG.faceRadius);
+});
+test('full power scatters within each of eight directions; every preview replays the same ballistic landing',()=>{
+  for(let sector=0;sector<8;sector++){
+    const angle=sector*Math.PI/4,dx=-Math.cos(angle)*100,dy=Math.sin(angle)*100,positions=new Set();
+    for(let seed=0;seed<500;seed++){
+      const input={dx,dy,maxPull:100,scatterSeed:seed},shot=makeShot(input),r=resolveFlight(shot),target=fullPowerTarget(dx,dy,seed),radius=Math.hypot(r.position.x,r.position.y-CONFIG.boardY);
+      assert.equal(r.hit,true);assert.equal(shot.sector,sector);assert.ok(radius<=CONFIG.radius*.98+1e-9);
+      const actualAngle=Math.atan2(r.position.y-CONFIG.boardY,r.position.x),delta=Math.atan2(Math.sin(actualAngle-angle),Math.cos(actualAngle-angle));assert.ok(Math.abs(delta)<=Math.PI/8+1e-9);
+      assert.ok(Math.abs(r.position.x-target.x)<1e-9&&Math.abs(r.position.y-target.y)<1e-9);assert.deepEqual(makeShot(input),shot);assert.deepEqual(positionAt(shot,r.time),r.position);positions.add(`${r.position.x},${r.position.y}`);
+    }
+    assert.equal(positions.size,500);
+  }
+});
+test('four scattered full-power shots shatter; 99% and non-full wall misses do not advance damage',()=>{
+  const s=createGameState();let normalPoints=0;
+  for(let i=0;i<3;i++){const r=resolveFlight(makeShot({dx:0,dy:100,maxPull:100,scatterSeed:i*8937})),out=applyResult(s,r);assert.ok([5,10,50].includes(out.points));normalPoints+=out.points;assert.equal(s.phase,'ready');assert.equal(s.fullPowerHits,i+1);}
+  const last=applyResult(s,resolveFlight(makeShot({dx:0,dy:100,maxPull:100,scatterSeed:19})));assert.equal(last.kind,'smash');assert.equal(last.points,100);assert.equal(s.score,normalPoints+100);
+  const other=createGameState(),almost=resolveFlight(makeShot({dx:0,dy:99,maxPull:100}));assert.equal(almost.zone,'rim');assert.equal(applyResult(other,almost).points,5);assert.equal(other.fullPowerHits,0);
+  const miss=resolveFlight(makeShot({dx:54,dy:72,maxPull:100}));assert.equal(miss.force,.9);assert.equal(miss.hit,false);assert.equal(miss.surface,'wall');assert.equal(applyResult(other,miss).points,0);assert.equal(other.fullPowerHits,0);
 });
 test('over 60% inserts rigidly with three alternating poses and shakes',()=>{
   for(const [force,firm] of [[.59,false],[.6,false],[.6000000000000001,false],[.6001,true]]){const s=createGameState(),r=applyResult(s,hit(force));assert.equal(s.darts[0].firm,firm);assert.equal(r.shake,firm);}
