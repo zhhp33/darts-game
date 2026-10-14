@@ -1,6 +1,30 @@
 // Unequal physical fragments around the actual impact, rather than radial slices.
 const TAU=Math.PI*2;
 function random(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
+// Each impact owns its geometry. Later hits never resize an earlier fissure.
+export function makeImpactCracks(hit,index){
+  const stage=Math.min(3,index+1),rnd=random(1903+index*83),paths=[];
+  const arms=stage===1?4:stage===2?5:6,growth=[1,2.6,5.2][stage-1];
+  for(let arm=0;arm<arms;arm++){
+    const angle=arm/arms*TAU+rnd()*(stage===1?.55:1.05)+index*.73;
+    const length=(.065+rnd()*.08)*growth,vertices=[{x:hit.x,y:-hit.y}];
+    const steps=stage===1?4:6;
+    for(let step=1;step<=steps;step++){
+      const distance=length*step/steps,drift=(rnd()-.5)*length*(stage===1?.18:.28);
+      vertices.push({x:hit.x+Math.cos(angle)*distance-Math.sin(angle)*drift,y:-hit.y+Math.sin(angle)*distance+Math.cos(angle)*drift});
+    }
+    paths.push({vertices,lightWidth:[1.6,2.3,3.2][stage-1],darkWidth:[.75,1.1,1.6][stage-1]});
+    if(stage>1&&arm%2===0){
+      const p=vertices[2+arm%3],turn=angle+(arm%3===0?-.85:.7),branch=[p];
+      for(let step=1;step<=3;step++){
+        const d=length*.32*step/3,drift=(rnd()-.5)*length*.06;
+        branch.push({x:p.x+Math.cos(turn)*d-Math.sin(turn)*drift,y:p.y+Math.sin(turn)*d+Math.cos(turn)*drift});
+      }
+      paths.push({vertices:branch,lightWidth:stage===2?1.5:2,darkWidth:stage===2?.65:.9});
+    }
+  }
+  return paths;
+}
 function halfPlane(polygon,nx,ny,c){
   const out=[];
   for(let i=0;i<polygon.length;i++){
