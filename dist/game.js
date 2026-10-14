@@ -8,6 +8,8 @@ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let state=createGameState(),width=0,height=0,view=null,pull={dx:0,dy:0},pointerId=null,pointerStart=null;
 let flight=null,effect=null,particles=[],clock=0,lastFrame=performance.now(),feedbackUntil=0,shakeUntil=0,replaceUntil=0,reboundAt=-10;
 let loaded=false,soundEnabled=true,audio=null;
+let slapBuffer=null,slapDecode=null;
+const slapData=fetch(new URL('./assets/shatter-slap.wav',import.meta.url)).then(response=>{if(!response.ok)throw new Error('Slap asset unavailable');return response.arrayBuffer();}).catch(()=>null);
 let needsRedraw=true,backgroundReady=false;
 let wallHoles=[];
 try{soundEnabled=localStorage.getItem('slingshot-sound')!=='off';}catch{}
@@ -280,13 +282,32 @@ function showFeedback(head,text,impact=false,duration=1.45,badge=''){
   ui.feedback.replaceChildren();const strong=document.createElement('strong');strong.textContent=head;ui.feedback.append(strong,document.createTextNode(text));if(badge){const small=document.createElement('small');small.textContent=badge;ui.feedback.append(small);}ui.feedback.className=`feedback visible${impact?' impact':''}`;feedbackUntil=clock+duration;
 }
 function updateSoundButton(){ui.sound.setAttribute('aria-pressed',String(soundEnabled));ui.sound.setAttribute('aria-label',soundEnabled?'关闭声音':'开启声音');ui.sound.title=soundEnabled?'关闭声音':'开启声音';}
-function unlockAudio(){if(!soundEnabled)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume().catch(()=>{});}catch{}}
+function unlockAudio(){
+  if(!soundEnabled)return;
+  try{
+    audio??=new (window.AudioContext||window.webkitAudioContext)();
+    if(audio.state==='suspended')audio.resume().catch(()=>{});
+    slapDecode??=slapData.then(bytes=>bytes?audio.decodeAudioData(bytes):null).then(buffer=>{slapBuffer=buffer;}).catch(()=>{});
+  }catch{}
+}
 function playSound(kind){
   if(!soundEnabled||!audio||audio.state!=='running')return;
   try{
-    if(kind==='smash'||kind==='full-impact'){
+    if(kind==='smash'){
+      const requestedAt=clock;
+      const strike=()=>{
+        if(!slapBuffer||!soundEnabled||audio.state!=='running'||state.phase!=='destroying'||clock-requestedAt>.8)return;
+        const now=audio.currentTime;
+        for(const offset of [0,.4,.8]){
+          const src=audio.createBufferSource();src.buffer=slapBuffer;src.connect(audio.destination);src.start(now+offset);
+        }
+      };
+      if(slapBuffer)strike();else slapDecode?.then(strike);
+      return;
+    }
+    if(kind==='full-impact'){
       const now=audio.currentTime;
-      for(const offset of kind==='smash'?[0,.5,1]:[0]){
+      for(const offset of [0]){
         const start=now+offset,length=.14,buffer=audio.createBuffer(1,Math.floor(audio.sampleRate*length),audio.sampleRate),data=buffer.getChannelData(0);
         for(let i=0;i<data.length;i++)data[i]=(Math.random()*2-1)*Math.exp(-i/data.length*7);
         const src=audio.createBufferSource(),filter=audio.createBiquadFilter(),gain=audio.createGain();src.buffer=buffer;filter.type='highpass';filter.frequency.value=500;gain.gain.setValueAtTime(.16,start);gain.gain.exponentialRampToValueAtTime(.001,start+length);src.connect(filter);filter.connect(gain);gain.connect(audio.destination);src.start(start);src.stop(start+length);

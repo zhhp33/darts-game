@@ -1,5 +1,9 @@
 # 头像素材与抠图提示词
 
+## 碎盘掌掴音效
+
+`dist/assets/shatter-slap.wav` 来源于 magicjoshua 的 [Face slap sound effect](https://freesound.org/people/magicjoshua/sounds/704179/)，作者明确描述为手掌打在自己脸上的录音，采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/704/704179_6893335-hq.mp3 。转换为48kHz、16位、双声道 WAV，保留完整起音和原录音，仅将峰值音量调整到0.35。用户已试听确认此音色与音量；最终碎盘时重复播放三下，起音间隔0.4秒。旧的合成拍击、拍掌试听均未用于最终网站。
+
 当前默认头像：[用户提供的方形头像](/Users/zhenghaipeng/Downloads/飞镖/slingshot-darts/dist/assets/portrait-classic-square.png)，714×714。直接采用原图，三个头像使用同一显示框并等比例缩放。
 
 处理方式：内置 imagegen 工具，两张图片分别处理，透明背景。保留表情、眼镜、衣领与人物比例；访谈头像移除背景和麦克风，大头头像保留大头比例。原始附件未覆盖。
