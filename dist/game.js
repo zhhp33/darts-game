@@ -353,9 +353,9 @@ function frame(now){
       if(flight.time>=flight.result.time){
         const result=flight.result;flight=null;const outcome=applyResult(state,result);if(outcome.shake)shakeUntil=clock+.16;recordWallHole(result);spawnDust(result.position,outcome.kind);playSound(outcome.kind==='smash'?'smash':result.force+1e-9>=CONFIG.smashForce?'full-impact':outcome.kind);
         const cup=result.zone==='bull'?'特大杯！':result.zone==='rim'?'中杯！':'大杯！';
-        if(outcome.kind==='smash'){beginDestruction('smash');ui.feedback.replaceChildren();ui.feedback.className='feedback';feedbackUntil=0;}
-        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback(`+${outcome.points}`,cup);}
-        else if(result.hit)showFeedback(`+${outcome.points}`,cup);
+        if(outcome.kind==='smash'){beginDestruction('smash');showFeedback('罗老师，别这样',`+${outcome.points}`,true,1.9);}
+        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback(cup,`+${outcome.points}`);}
+        else if(result.hit)showFeedback(cup,`+${outcome.points}`);
         else showFeedback('差一点','再调整方向试试');
         updateHud();
       }
