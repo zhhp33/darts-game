@@ -1,4 +1,4 @@
-import {CONFIG,clamp,makeShot,positionAt,resolveFlight,createGameState,applyResult,replaceBoard,constrainPull} from './physics.js?v=3';
+import {CONFIG,clamp,makeShot,positionAt,resolveFlight,createGameState,applyResult,replaceBoard,constrainPull} from './physics.js?v=direction-1';
 import {makeFragments,makeImpactCracks} from './fracture.js?v=3';
 
 const canvas=document.querySelector('#game');
@@ -6,10 +6,13 @@ const ctx=canvas.getContext('2d',{alpha:false});
 const ui=Object.fromEntries(['score','shots','accuracy','darts','feedback','power-value','power-fill','power-hint','pull-hint','replace','restart','sound','loading'].map(id=>[id,document.getElementById(id)]));
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let state=createGameState(),width=0,height=0,view=null,pull={dx:0,dy:0},pointerId=null,pointerStart=null;
+let aimSeed=0;
+const aimDirections=['右','右上','上','左上','左','左下','下','右下'];
 let flight=null,effect=null,particles=[],clock=0,lastFrame=performance.now(),feedbackUntil=0,shakeUntil=0,replaceUntil=0,reboundAt=-10;
 let loaded=false,soundEnabled=true,audio=null;
-let slapBuffer=null,slapDecode=null,audioResume=null,soundEpoch=0;
+let slapBuffer=null,slapDecode=null,audioResume=null,soundEpoch=0,audioUnlocked=false;
 let slapData=null;
+let cheerBuffer=null,cheerDecode=null,cheerSource=null;
 let needsRedraw=true,backgroundReady=false;
 let wallHoles=[];
 try{soundEnabled=localStorage.getItem('slingshot-sound')!=='off';}catch{}
@@ -218,10 +221,13 @@ function drawSling(){
   if(['ready','aiming'].includes(state.phase))drawDart(px,py-13*s,.84*s,-dx*.001);
 }
 
+export function currentShot(){return makeShot({...pull,maxPull:view.maxPull,scatterSeed:aimSeed});}
+function startAim(){aimSeed=Math.floor(Math.random()*4294967296);state.phase='aiming';}
 function drawTrajectory(){
   if(state.phase!=='aiming'||Math.hypot(pull.dx,pull.dy)<5)return;
-  const shot=makeShot({...pull,maxPull:view.maxPull}),result=resolveFlight(shot);
-  // Show the initial arc only: no destination marker or automatic aim correction.
+  const shot=currentShot(),result=resolveFlight(shot);
+  if(shot.force+1e-9>=CONFIG.smashForce)return;
+  // Show the shared initial arc only; do not mark the destination.
   const end=Math.min(result.time*.78,.57);
   for(let i=1;i<=13;i++){
     const t=end*i/13,p=project(positionAt(shot,t));circle(ctx,p.x,p.y,Math.max(1.15,3-i*.13),`rgba(255,255,235,${.8-i*.038})`);
@@ -275,6 +281,7 @@ function updateHud(){
   document.querySelector('.power-panel').classList.toggle('hot',force+1e-9>=CONFIG.smashForce);
   ui['power-hint'].textContent=force+1e-9>=CONFIG.smashForce?'100%！松手发射':state.phase==='aiming'?'左右调整方向，松手发射':state.phase==='flying'?'飞镖飞行中…':state.phase==='destroying'?'正在挂上新靶盘…':'拉住弹弓，向后拖动';
   ui.replace.dataset.damage=String(state.fullPowerHits);canvas.dataset.wallHoles=String(wallHoles.length);
+  const lastDart=state.darts.at(-1);canvas.dataset.hitX=lastDart?String(lastDart.x):'';canvas.dataset.hitY=lastDart?String(lastDart.y):'';
   ui.replace.dataset.portrait=String(portraitIndex);ui.replace.setAttribute('aria-label',`换个靶盘，当前${portraitStyles[portraitIndex].name}`);
   ui.replace.disabled=!loaded||state.phase!=='ready';
   ui['pull-hint'].style.opacity=state.phase==='ready'&&state.shots<3?'1':'0';
@@ -285,29 +292,49 @@ function showFeedback(head,text,impact=false,duration=1.45,badge=''){
 function updateSoundButton(){ui.sound.setAttribute('aria-pressed',String(soundEnabled));ui.sound.setAttribute('aria-label',soundEnabled?'关闭声音':'开启声音');ui.sound.title=soundEnabled?'关闭声音':'开启声音';}
 function prepareAudio(){
   try{
-    audio??=new (window.AudioContext||window.webkitAudioContext)();
+    const Offline=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+    const decode=bytes=>Offline?new Offline(1,1,48000).decodeAudioData(bytes):audio?.decodeAudioData(bytes)??null;
     if(!slapDecode){
-      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
-      slapData??=fetch(new URL('./assets/shatter-slap.wav',import.meta.url),{signal:controller.signal})
-        .then(response=>{if(!response.ok)throw new Error('Slap asset unavailable');return response.arrayBuffer();})
-        .finally(()=>clearTimeout(timeout));
-      slapDecode=slapData.then(bytes=>audio.decodeAudioData(bytes)).then(buffer=>{slapBuffer=buffer;return buffer;})
+      if(!slapData){
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
+        slapData=fetch(new URL('./assets/shatter-slap.wav?v=trp-first-three-fast-1',import.meta.url),{signal:controller.signal})
+          .then(response=>{if(!response.ok)throw new Error('Slap asset unavailable');return response.arrayBuffer();})
+          .finally(()=>clearTimeout(timeout));
+      }
+      slapDecode=slapData.then(decode).then(buffer=>{slapBuffer=buffer;if(!buffer)slapDecode=null;return buffer;})
         .catch(()=>{slapData=null;slapDecode=null;return null;});
     }
-    return slapDecode;
+    if(!cheerDecode){
+      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
+      cheerDecode=fetch(new URL('./assets/human-cheer.wav?v=c2-fade-eighth-1',import.meta.url),{signal:controller.signal})
+        .then(response=>{if(!response.ok)throw new Error('Cheer asset unavailable');return response.arrayBuffer();})
+        .then(decode).then(buffer=>{cheerBuffer=buffer;if(!buffer)cheerDecode=null;return buffer;})
+        .catch(()=>{cheerDecode=null;return null;}).finally(()=>clearTimeout(timeout));
+    }
+    return Promise.all([slapDecode,cheerDecode]);
   }catch{return Promise.resolve(null);}
 }
 function unlockAudio(){
   if(!soundEnabled)return;
-  prepareAudio();
   try{
-    // Resume inside the input event; the first sound may arrive before it completes.
-    if(audio&&audio.state!=='running'&&audio.state!=='closed'){
+    // Create the playback context inside the gesture, not during page loading.
+    audio??=new (window.AudioContext||window.webkitAudioContext)();
+    prepareAudio();
+    if(audio.state==='closed')return;
+    // iOS also needs a source started synchronously during touchstart/click.
+    // A zero-valued sample is inaudible; completion confirms audio rendering works.
+    if(!audioUnlocked||audio.state!=='running'){
+      const source=audio.createBufferSource();source.buffer=audio.createBuffer(1,1,audio.sampleRate);source.connect(audio.destination);
+      source.onended=()=>{source.disconnect();audioUnlocked=soundEnabled&&!document.hidden&&audio.state==='running';};
+      source.start(0);
+    }
+    if(!audioUnlocked||audio.state!=='running'){
       const resumed=audio.resume().catch(()=>{});audioResume=resumed;
       resumed.finally(()=>{if(audioResume===resumed)audioResume=null;});
     }
   }catch{}
 }
+function stopCheer(){cheerSource?.stop();cheerSource=null;}
 function playSound(kind){
   if(!soundEnabled||!audio)return;
   if(audio.state!=='running'){
@@ -318,14 +345,21 @@ function playSound(kind){
     return;
   }
   try{
+    if(kind==='cheer'){
+      const epoch=soundEpoch,shot=state.shots;
+      const celebrate=()=>{
+        if(!cheerBuffer||!soundEnabled||soundEpoch!==epoch||state.shots!==shot||audio.state!=='running'||state.phase!=='destroying'||document.hidden)return;
+        stopCheer();const source=audio.createBufferSource();source.buffer=cheerBuffer;source.connect(audio.destination);cheerSource=source;
+        source.onended=()=>{if(cheerSource===source)cheerSource=null;};source.start(audio.currentTime);
+      };
+      if(cheerBuffer)celebrate();else cheerDecode?.then(celebrate);
+      return;
+    }
     if(kind==='smash'){
       const epoch=soundEpoch,shot=state.shots;
       const strike=()=>{
         if(!slapBuffer||!soundEnabled||soundEpoch!==epoch||state.shots!==shot||audio.state!=='running'||state.phase!=='destroying'||document.hidden)return;
-        const now=audio.currentTime;
-        for(const offset of [0,.4,.8]){
-          const src=audio.createBufferSource();src.buffer=slapBuffer;src.connect(audio.destination);src.start(now+offset);
-        }
+        const src=audio.createBufferSource();src.buffer=slapBuffer;src.connect(audio.destination);src.start(audio.currentTime);
       };
       if(slapBuffer)strike();else slapDecode?.then(strike);
       return;
@@ -358,14 +392,14 @@ function limitPull(dx,dy){return constrainPull(dx,dy,view,width,height);}
 function launch(){
   if(state.phase!=='aiming'||!loaded)return;
   if(Math.hypot(pull.dx,pull.dy)<3){cancelAim();return;}
-  const shot=makeShot({...pull,maxPull:view.maxPull});flight={shot,result:resolveFlight(shot),time:0};
+  const shot=currentShot();flight={shot,result:resolveFlight(shot),time:0};
   state.phase='flying';pull={dx:0,dy:0};reboundAt=clock;playSound('release');updateHud();
 }
 function eventPoint(e){const rect=canvas.getBoundingClientRect();return {x:(e.clientX-rect.left)*width/rect.width,y:(e.clientY-rect.top)*height/rect.height};}
 canvas.addEventListener('pointerdown',e=>{
   if(!loaded||state.phase!=='ready'||pointerId!==null||!e.isPrimary||(e.pointerType==='mouse'&&e.button!==0))return;
   const p=eventPoint(e);if(Math.hypot(p.x-view.sx,p.y-view.sy)>65*view.slingScale)return;
-  e.preventDefault();canvas.focus({preventScroll:true});unlockAudio();pointerId=e.pointerId;pointerStart=p;canvas.setPointerCapture(pointerId);state.phase='aiming';pull={dx:0,dy:0};updateHud();
+  e.preventDefault();canvas.focus({preventScroll:true});unlockAudio();pointerId=e.pointerId;pointerStart=p;canvas.setPointerCapture(pointerId);startAim();pull={dx:0,dy:0};updateHud();
 });
 canvas.addEventListener('pointermove',e=>{if(e.pointerId!==pointerId||state.phase!=='aiming')return;e.preventDefault();const p=eventPoint(e);pull=limitPull(p.x-pointerStart.x,p.y-pointerStart.y);updateHud();});
 canvas.addEventListener('pointerup',e=>{if(e.pointerId!==pointerId)return;const p=eventPoint(e);pull=limitPull(p.x-pointerStart.x,p.y-pointerStart.y);const id=pointerId;pointerId=null;pointerStart=null;if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);launch();});
@@ -376,23 +410,24 @@ canvas.addEventListener('keydown',e=>{
   if(!loaded||!['ready','aiming'].includes(state.phase)||pointerId!==null)return;
   if(e.key==='Escape'){e.preventDefault();cancelAim();return;}
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
-    e.preventDefault();if(state.phase==='ready'){state.phase='aiming';pull={dx:0,dy:view.maxPull*.65/CONFIG.maxForce};}
+    e.preventDefault();if(state.phase==='ready'){startAim();pull={dx:0,dy:view.maxPull*.65/CONFIG.maxForce};}
     pull=limitPull(pull.dx+(e.key==='ArrowLeft'?-7:e.key==='ArrowRight'?7:0),pull.dy+(e.key==='ArrowDown'?7:e.key==='ArrowUp'?-7:0));updateHud();
   }else if(e.code==='Space'||e.key==='Enter'){
-    e.preventDefault();unlockAudio();if(state.phase==='ready'){state.phase='aiming';pull={dx:0,dy:view.maxPull*.65/CONFIG.maxForce};}launch();
+    e.preventDefault();unlockAudio();if(state.phase==='ready'){startAim();pull={dx:0,dy:view.maxPull*.65/CONFIG.maxForce};}launch();
   }
 });
-// Retry on each deliberate interaction, including touch release and Safari interruptions.
-for(const type of ['pointerdown','pointerup','touchend','keydown'])document.addEventListener(type,unlockAudio,{passive:true,capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){soundEpoch++;cancelAim();}lastFrame=performance.now();});
+// touchstart precedes a drag; Safari may reject touchend after the finger has moved.
+for(const type of ['touchstart','touchend','pointerdown','pointerup','click','keydown'])document.addEventListener(type,unlockAudio,{passive:true,capture:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){soundEpoch++;audioUnlocked=false;stopCheer();cancelAim();}lastFrame=performance.now();});
 function freshBoard(clearScore=false,cyclePortrait=false){
   soundEpoch++;
+  stopCheer();
   cancelAim();if(clearScore)state=createGameState();else replaceBoard(state);
   if(cyclePortrait){portraitIndex=(portraitIndex+1)%portraitStyles.length;buildTextures();}
   flight=null;effect=null;particles=[];pull={dx:0,dy:0};shakeUntil=0;feedbackUntil=0;ui.feedback.replaceChildren();ui.feedback.className='feedback';state.phase='replacing';replaceUntil=clock+.35;updateHud();
 }
 ui.replace.addEventListener('click',()=>{if(state.phase==='ready')freshBoard(false,true);});ui.restart.addEventListener('click',()=>freshBoard(true));
-ui.sound.addEventListener('click',()=>{soundEpoch++;soundEnabled=!soundEnabled;try{localStorage.setItem('slingshot-sound',soundEnabled?'on':'off');}catch{}if(soundEnabled)unlockAudio();updateSoundButton();});
+ui.sound.addEventListener('click',()=>{soundEpoch++;soundEnabled=!soundEnabled;if(!soundEnabled)audioUnlocked=false;try{localStorage.setItem('slingshot-sound',soundEnabled?'on':'off');}catch{}if(soundEnabled)unlockAudio();else stopCheer();updateSoundButton();});
 
 function frame(now){
   const dt=document.hidden?0:Math.min((now-lastFrame)/1000,.05);lastFrame=now;clock+=dt;
@@ -403,7 +438,7 @@ function frame(now){
         const result=flight.result;flight=null;const outcome=applyResult(state,result);if(outcome.shake)shakeUntil=clock+.16;recordWallHole(result);spawnDust(result.position,outcome.kind);playSound(outcome.kind==='smash'?'smash':result.force+1e-9>=CONFIG.smashForce?'full-impact':outcome.kind);
         const cup=result.zone==='bull'?'特大杯':result.zone==='rim'?'中杯':'大杯';
         if(outcome.kind==='smash'){beginDestruction('smash');showFeedback('罗老师，别这样',`+${outcome.points}`,true,1.9);}
-        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback('理解万岁！',`+${outcome.points}`,true,1.9);}
+        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback('理解万岁！',`+${outcome.points}`,true,1.9);playSound('cheer');}
         else if(result.hit)showFeedback(cup,`+${outcome.points}`);
         else showFeedback('差一点','再调整方向试试');
         updateHud();

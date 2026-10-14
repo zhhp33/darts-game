@@ -6,4 +6,5 @@
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 .brand p,.button span{white-space:nowrap}.header-actions{flex-shrink:0}
 .power-track i{left:100%;top:-3px;background:#aa4c34}.feedback small{display:block;font-size:11px;margin-top:9px;font-weight:500}.board-counter{width:112px}
+.board-counter{width:auto}.board-counter .dart-count{margin-left:0;display:inline-flex;align-items:center;gap:0;line-height:1}
 @media(max-width:360px){.brand{gap:7px}.brand-mark{width:34px;height:34px}.brand p{font-size:6px;letter-spacing:1.5px}h1{font-size:19px}.header-actions{gap:6px}.secondary{padding:0 8px;gap:5px}.score-number{font-size:34px}.score-details{gap:6px}.power-panel{width:87px}.pull-hint{display:none}}

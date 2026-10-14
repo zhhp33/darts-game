@@ -2,12 +2,33 @@
 export const CONFIG = Object.freeze({depth:8, boardY:2.6, radius:1, faceRadius:.675, bullRadius:.245, gravity:9.8, floorY:-.4, maxForce:1, smashForce:1, smashHits:4, firmForce:.6, dartLimit:12, replacementTime:2});
 export const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 
-export function makeShot({dx,dy,maxPull}) {
+export function fullPowerTarget(dx,dy,seed=0){
+  const step=Math.PI/4,sector=(Math.round(Math.atan2(dy,-dx)/step)+8)%8;
+  let value=seed>>>0;
+  const random=()=>{value=(Math.imul(value,1664525)+1013904223)>>>0;return value/4294967296;};
+  const angle=sector*step+(random()-.5)*step;
+  const radius=Math.sqrt(random())*CONFIG.radius*.98;
+  return {x:Math.cos(angle)*radius,y:CONFIG.boardY+Math.sin(angle)*radius,sector};
+}
+
+export function makeShot({dx,dy,maxPull,scatterSeed=0}) {
   const length=Math.hypot(dx,dy);
   const force=clamp(length/maxPull*CONFIG.maxForce,0,CONFIG.maxForce);
   const vz=4+13*force;
   const pitch=.2-.0615*clamp((force-.65)/.35,0,1);
-  return {force,x:0,y:1.45,z:0,vx:-dx/maxPull*vz*.36,vy:2.4+vz*(pitch+(dy/Math.max(length,1)-1)*.3),vz};
+  const time=CONFIG.depth/vz,baseVy=2.4+vz*pitch;
+  const baseHeight=1.45+baseVy*time-.5*CONFIG.gravity*time*time;
+  const topRimHeight=CONFIG.boardY+(CONFIG.radius+CONFIG.faceRadius)/2;
+  // Keep the easy center band; smoothly raise stronger shots to the upper rim.
+  const progress=clamp((force-.7)/.3,0,1),blend=progress*progress*(3-2*progress);
+  const lift=(topRimHeight-baseHeight)*blend/time;
+  const shot={force,x:0,y:1.45,z:0,vx:-dx/maxPull*vz*.36,vy:baseVy+lift+vz*(dy/Math.max(length,1)-1)*.3,vz};
+  if(force+1e-9>=CONFIG.smashForce){
+    // Replay the same seeded target for the guide and the actual ballistic flight.
+    const target=fullPowerTarget(dx,dy,scatterSeed);
+    shot.vx=target.x/time;shot.vy=(target.y-shot.y+.5*CONFIG.gravity*time*time)/time;shot.sector=target.sector;
+  }
+  return shot;
 }
 export function positionAt(shot,t) {
   return {x:shot.x+shot.vx*t,y:shot.y+shot.vy*t-.5*CONFIG.gravity*t*t,z:shot.z+shot.vz*t};

@@ -1,8 +1,14 @@
 # 头像素材与抠图提示词
 
+## 插满12个飞镖的欢呼音效
+
+`dist/assets/human-cheer.wav` 采用用户确认的 C2：Zeraora 的 [Audience Clapping.wav](https://freesound.org/people/Zeraora/sounds/429422/)，录于 Fredericton Playhouse，包含观众欢呼与掌声，页面标注 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/429/429422_7347459-hq.mp3 。截取原录音0.2—2.0秒，共1.8秒；结尾0.6秒叠加余弦曲线淡出，终点降至静音，随后按用户要求连续三次将整段音量减半，最终为原淡出试听的12.5%，保存为48kHz、16位、双声道 WAV。在“理解万岁！”弹出时播放一次，并服从声音开关。最终独立试听保存在 `artifacts/cheer-options/keynote-style/C2-fade-eighth.wav`；原淡出试听及此前各次降音量试听保留。本次仅更新本地文件。
+
 ## 碎盘掌掴音效
 
-`dist/assets/shatter-slap.wav` 来源于 magicjoshua 的 [Face slap sound effect](https://freesound.org/people/magicjoshua/sounds/704179/)，作者明确描述为手掌打在自己脸上的录音，采用 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/704/704179_6893335-hq.mp3 。转换为48kHz、16位、双声道 WAV，保留完整起音和原录音，仅将峰值音量调整到0.35。用户已试听确认此音色与音量；最终碎盘时重复播放三下，起音间隔0.4秒。旧的合成拍击、拍掌试听均未用于最终网站。
+`dist/assets/shatter-slap.wav` 采用用户试听确认的 TRP [slaps, face, foley, 10.flac](https://freesound.org/people/TRP/sounds/576961/)，页面标注 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/576/576961_97550-hq.mp3 。提取原录音约1.087、3.460、5.658秒起音的前三下，保留各自原始音色与音高，将起音间隔缩短为0.2667秒，整段0.9063秒，保存为48kHz、16位、双声道 WAV。游戏在碎盘时只播放这段录音一次，避免将三下整段再次重复三遍。
+
+2026-10-15 用户要求尽量保持现有音量：以替换前的单下音效按0.4秒间隔重复三次为参照，比较400毫秒 K 加权双声道能量窗口（100毫秒步长，并做绝对及相对门限处理），将确认的试听整段提高约4.276分贝。新旧测量响度差小于0.01分贝，成品峰值约0.573，无削波；不同音色与播放设备仍可能带来听感差异。最终独立试听保存在 `../音效试听/靶盘掉落-TRP前三下-最终音量.wav`，测量记录为同名 JSON。原 magicjoshua 单下音效及修改前文件备份在 `artifacts/slap-replacement/2026-10-15/before/`。本次仅修改本地文件，未发布线上。
 
 当前默认头像：[用户提供的方形头像](/Users/zhenghaipeng/Downloads/飞镖/slingshot-darts/dist/assets/portrait-classic-square.png)，714×714。直接采用原图，三个头像使用同一显示框并等比例缩放。
 
