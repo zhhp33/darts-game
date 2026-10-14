@@ -1,5 +1,7 @@
 # 头像素材与抠图提示词
 
+当前默认头像：[用户提供的方形头像](/Users/zhenghaipeng/Downloads/飞镖/slingshot-darts/dist/assets/portrait-classic-square.png)，714×714。直接采用原图，三个头像使用同一显示框并等比例缩放。
+
 处理方式：内置 imagegen 工具，两张图片分别处理，透明背景。保留表情、眼镜、衣领与人物比例；访谈头像移除背景和麦克风，大头头像保留大头比例。原始附件未覆盖。
 
 最终素材：
