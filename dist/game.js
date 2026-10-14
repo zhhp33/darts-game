@@ -8,8 +8,8 @@ const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 let state=createGameState(),width=0,height=0,view=null,pull={dx:0,dy:0},pointerId=null,pointerStart=null;
 let flight=null,effect=null,particles=[],clock=0,lastFrame=performance.now(),feedbackUntil=0,shakeUntil=0,replaceUntil=0,reboundAt=-10;
 let loaded=false,soundEnabled=true,audio=null;
-let slapBuffer=null,slapDecode=null;
-const slapData=fetch(new URL('./assets/shatter-slap.wav',import.meta.url)).then(response=>{if(!response.ok)throw new Error('Slap asset unavailable');return response.arrayBuffer();}).catch(()=>null);
+let slapBuffer=null,slapDecode=null,audioResume=null,soundEpoch=0;
+let slapData=null;
 let needsRedraw=true,backgroundReady=false;
 let wallHoles=[];
 try{soundEnabled=localStorage.getItem('slingshot-sound')!=='off';}catch{}
@@ -283,21 +283,45 @@ function showFeedback(head,text,impact=false,duration=1.45,badge=''){
   ui.feedback.replaceChildren();const strong=document.createElement('strong');strong.textContent=head;ui.feedback.append(strong,document.createTextNode(text));if(badge){const small=document.createElement('small');small.textContent=badge;ui.feedback.append(small);}ui.feedback.className=`feedback visible${impact?' impact':''}`;feedbackUntil=clock+duration;
 }
 function updateSoundButton(){ui.sound.setAttribute('aria-pressed',String(soundEnabled));ui.sound.setAttribute('aria-label',soundEnabled?'关闭声音':'开启声音');ui.sound.title=soundEnabled?'关闭声音':'开启声音';}
-function unlockAudio(){
-  if(!soundEnabled)return;
+function prepareAudio(){
   try{
     audio??=new (window.AudioContext||window.webkitAudioContext)();
-    if(audio.state==='suspended')audio.resume().catch(()=>{});
-    slapDecode??=slapData.then(bytes=>bytes?audio.decodeAudioData(bytes):null).then(buffer=>{slapBuffer=buffer;}).catch(()=>{});
+    if(!slapDecode){
+      const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),10000);
+      slapData??=fetch(new URL('./assets/shatter-slap.wav',import.meta.url),{signal:controller.signal})
+        .then(response=>{if(!response.ok)throw new Error('Slap asset unavailable');return response.arrayBuffer();})
+        .finally(()=>clearTimeout(timeout));
+      slapDecode=slapData.then(bytes=>audio.decodeAudioData(bytes)).then(buffer=>{slapBuffer=buffer;return buffer;})
+        .catch(()=>{slapData=null;slapDecode=null;return null;});
+    }
+    return slapDecode;
+  }catch{return Promise.resolve(null);}
+}
+function unlockAudio(){
+  if(!soundEnabled)return;
+  prepareAudio();
+  try{
+    // Resume inside the input event; the first sound may arrive before it completes.
+    if(audio&&audio.state!=='running'&&audio.state!=='closed'){
+      const resumed=audio.resume().catch(()=>{});audioResume=resumed;
+      resumed.finally(()=>{if(audioResume===resumed)audioResume=null;});
+    }
   }catch{}
 }
 function playSound(kind){
-  if(!soundEnabled||!audio||audio.state!=='running')return;
+  if(!soundEnabled||!audio)return;
+  if(audio.state!=='running'){
+    const epoch=soundEpoch,shot=state.shots,requestedAt=clock;
+    audioResume?.then(()=>{
+      if(audio.state==='running'&&soundEnabled&&soundEpoch===epoch&&state.shots===shot&&!document.hidden&&clock-requestedAt<=.8)playSound(kind);
+    });
+    return;
+  }
   try{
     if(kind==='smash'){
-      const requestedAt=clock;
+      const epoch=soundEpoch,shot=state.shots;
       const strike=()=>{
-        if(!slapBuffer||!soundEnabled||audio.state!=='running'||state.phase!=='destroying'||clock-requestedAt>.8)return;
+        if(!slapBuffer||!soundEnabled||soundEpoch!==epoch||state.shots!==shot||audio.state!=='running'||state.phase!=='destroying'||document.hidden)return;
         const now=audio.currentTime;
         for(const offset of [0,.4,.8]){
           const src=audio.createBufferSource();src.buffer=slapBuffer;src.connect(audio.destination);src.start(now+offset);
@@ -358,14 +382,17 @@ canvas.addEventListener('keydown',e=>{
     e.preventDefault();unlockAudio();if(state.phase==='ready'){state.phase='aiming';pull={dx:0,dy:view.maxPull*.65/CONFIG.maxForce};}launch();
   }
 });
-document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelAim();lastFrame=performance.now();});
+// Retry on each deliberate interaction, including touch release and Safari interruptions.
+for(const type of ['pointerdown','pointerup','touchend','keydown'])document.addEventListener(type,unlockAudio,{passive:true,capture:true});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){soundEpoch++;cancelAim();}lastFrame=performance.now();});
 function freshBoard(clearScore=false,cyclePortrait=false){
+  soundEpoch++;
   cancelAim();if(clearScore)state=createGameState();else replaceBoard(state);
   if(cyclePortrait){portraitIndex=(portraitIndex+1)%portraitStyles.length;buildTextures();}
   flight=null;effect=null;particles=[];pull={dx:0,dy:0};shakeUntil=0;feedbackUntil=0;ui.feedback.replaceChildren();ui.feedback.className='feedback';state.phase='replacing';replaceUntil=clock+.35;updateHud();
 }
 ui.replace.addEventListener('click',()=>{if(state.phase==='ready')freshBoard(false,true);});ui.restart.addEventListener('click',()=>freshBoard(true));
-ui.sound.addEventListener('click',()=>{soundEnabled=!soundEnabled;try{localStorage.setItem('slingshot-sound',soundEnabled?'on':'off');}catch{}if(soundEnabled)unlockAudio();updateSoundButton();});
+ui.sound.addEventListener('click',()=>{soundEpoch++;soundEnabled=!soundEnabled;try{localStorage.setItem('slingshot-sound',soundEnabled?'on':'off');}catch{}if(soundEnabled)unlockAudio();updateSoundButton();});
 
 function frame(now){
   const dt=document.hidden?0:Math.min((now-lastFrame)/1000,.05);lastFrame=now;clock+=dt;
@@ -376,7 +403,7 @@ function frame(now){
         const result=flight.result;flight=null;const outcome=applyResult(state,result);if(outcome.shake)shakeUntil=clock+.16;recordWallHole(result);spawnDust(result.position,outcome.kind);playSound(outcome.kind==='smash'?'smash':result.force+1e-9>=CONFIG.smashForce?'full-impact':outcome.kind);
         const cup=result.zone==='bull'?'特大杯':result.zone==='rim'?'中杯':'大杯';
         if(outcome.kind==='smash'){beginDestruction('smash');showFeedback('罗老师，别这样',`+${outcome.points}`,true,1.9);}
-        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback(cup,`+${outcome.points}`);}
+        else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback('理解万岁！',`+${outcome.points}`,true,1.9);}
         else if(result.hit)showFeedback(cup,`+${outcome.points}`);
         else showFeedback('差一点','再调整方向试试');
         updateHud();
@@ -390,7 +417,9 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
-Promise.all(portraits.map((portrait,i)=>new Promise(resolve=>{
+const portraitsReady=Promise.all(portraits.map((portrait,i)=>new Promise(resolve=>{
   portrait.onload=()=>resolve(true);portrait.onerror=()=>resolve(false);portrait.src=new URL(`./assets/${portraitStyles[i].file}`,import.meta.url).href;
-}))).then(results=>{buildTextures();loaded=true;ui.loading.classList.add('done');if(results.some(ok=>!ok))showFeedback('头像未加载','请刷新页面再试一次',false,8);updateHud();});
+})));
+// Prepare the recording before showing a playable board; decoding needs no playback permission.
+Promise.all([portraitsReady,soundEnabled?prepareAudio():null]).then(([results])=>{buildTextures();loaded=true;ui.loading.classList.add('done');if(results.some(ok=>!ok))showFeedback('头像未加载','请刷新页面再试一次',false,8);updateHud();});
 buildTextures();resize();updateHud();updateSoundButton();new ResizeObserver(resize).observe(canvas);requestAnimationFrame(frame);
