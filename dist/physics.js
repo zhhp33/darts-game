@@ -1,5 +1,5 @@
 // World-space flight is shared by the rendered trajectory and collision resolver.
-export const CONFIG = Object.freeze({depth:8, boardY:2.6, radius:1, faceRadius:.675, bullRadius:.245, gravity:9.8, floorY:-.4, maxForce:1, smashForce:1, smashHits:4, firmForce:.6, dartLimit:12, replacementTime:2});
+export const CONFIG = Object.freeze({depth:8, boardY:2.6, radius:1, faceRadius:.675, bullRadius:.245, gravity:9.8, floorY:-.4, maxForce:1, smashForce:1, smashHits:4, swingEscapeHits:6, firmForce:.6, dartLimit:12, replacementTime:2});
 export const clamp=(value,low,high)=>Math.max(low,Math.min(high,value));
 
 export function fullPowerTarget(dx,dy,seed=0){
@@ -33,30 +33,35 @@ export function makeShot({dx,dy,maxPull,scatterSeed=0}) {
 export function positionAt(shot,t) {
   return {x:shot.x+shot.vx*t,y:shot.y+shot.vy*t-.5*CONFIG.gravity*t*t,z:shot.z+shot.vz*t};
 }
-export function resolveFlight(shot) {
+export function resolveFlight(shot,board={x:0,y:CONFIG.boardY,rotation:0,active:true}) {
   const wallTime=(CONFIG.depth-shot.z)/shot.vz;
   const floorTime=(shot.vy+Math.sqrt(shot.vy**2+2*CONFIG.gravity*(shot.y-CONFIG.floorY)))/CONFIG.gravity;
   const time=Math.max(0,Math.min(wallTime,floorTime));
   const position=positionAt(shot,time);
-  const distance=Math.hypot(position.x,position.y-CONFIG.boardY);
-  const hit=wallTime<=floorTime && distance<=CONFIG.radius+1e-9;
+  const dx=position.x-board.x,dy=position.y-board.y,c=Math.cos(board.rotation),s=Math.sin(board.rotation);
+  const localPosition={x:dx*c-dy*s,y:CONFIG.boardY+dx*s+dy*c};
+  const distance=Math.hypot(localPosition.x,localPosition.y-CONFIG.boardY);
+  const hit=board.active!==false && wallTime<=floorTime && distance<=CONFIG.radius+1e-9;
   const zone=!hit?'miss':distance<=CONFIG.bullRadius+1e-9?'bull':distance<=CONFIG.faceRadius+1e-9?'face':'rim';
-  return {time,position,hit,bull:zone==='bull',zone,force:shot.force,surface:wallTime<=floorTime?'wall':'floor'};
+  return {time,position,localPosition,hit,bull:zone==='bull',zone,force:shot.force,surface:wallTime<=floorTime?'wall':'floor'};
 }
-export function createGameState(){return {score:0,shots:0,hits:0,darts:[],phase:'ready',destroyed:0,dropped:0,fullPowerHits:0,crackHits:[]};}
+export function createGameState(){return {score:0,shots:0,hits:0,darts:[],phase:'ready',destroyed:0,dropped:0,swingTier:0,fullPowerHits:0,crackHits:[]};}
 export function applyResult(state,result){
   state.shots++;
   if(!result.hit){state.phase='ready';return {kind:'miss',points:0,shake:false};}
   state.hits++;
   const fullPower=result.force+1e-9>=CONFIG.smashForce;
-  if(fullPower){state.fullPowerHits++;state.crackHits.push({x:result.position.x,y:result.position.y-CONFIG.boardY});}
+  const impact=result.localPosition||result.position;
+  if(fullPower){state.fullPowerHits++;state.crackHits.push({x:impact.x,y:impact.y-CONFIG.boardY});}
+  const escapeStage=state.swingTier===3;
   const shatters=fullPower&&state.fullPowerHits>=CONFIG.smashHits;
   const points=shatters?100:result.zone==='bull'?50:result.zone==='rim'?5:10;
   state.score+=points;
   const firm=result.force>CONFIG.firmForce+1e-9;
   const pose=firm?['oblique','rear','perspective'][state.darts.filter(d=>d.firm).length%3]:'droop';
-  state.darts.push({x:result.position.x,y:result.position.y-CONFIG.boardY,angle:Math.atan2(result.position.x,.9),force:result.force,firm,pose});
+  state.darts.push({x:impact.x,y:impact.y-CONFIG.boardY,angle:Math.atan2(impact.x,.9),force:result.force,firm,pose});
   if(shatters){state.destroyed++;state.phase='destroying';return {kind:'smash',points,shake:firm};}
+  if(escapeStage&&state.darts.length>=CONFIG.swingEscapeHits){state.dropped++;state.phase='destroying';return {kind:'escape',points,shake:firm};}
   if(state.darts.length>=CONFIG.dartLimit){state.dropped++;state.phase='destroying';return {kind:'drop',points,shake:firm};}
   state.phase='ready';return {kind:result.bull?'bull':'hit',points,shake:firm};
 }

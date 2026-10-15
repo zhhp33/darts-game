@@ -7,7 +7,7 @@
   <meta name="description" content="瞄准，发射！拟物化弹弓飞镖小游戏，四次满力命中打碎靶盘，支持电脑和手机。">
   <title>弹弓飞镖 · 瞄准，发射！</title>
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./style.css?v=copy-ticks-1">
+  <link rel="stylesheet" href="./style.css?v=soft-hammer-2">
 </head>
 <body>
   <main class="shell">
@@ -42,11 +42,18 @@
       <div class="loading" id="loading">正在挂上靶盘…</div>
     </section>
 
-    <footer class="guide">
-      <div class="guide-intro"><span class="mini-target" aria-hidden="true">◎</span><div><strong>瞄准，发射！</strong><p>往后拉出力度，调整方向，松手试试准头。</p></div></div>
-    </footer>
     <noscript><p class="noscript">请开启浏览器的 JavaScript 来玩弹弓飞镖。</p></noscript>
   </main>
-  <script type="module" src="./game.js?v=start-1-cheer8-copy-ticks-mount-1"></script>
+  <button id="hammer-reward" class="hammer-reward" aria-label="领取锤子" hidden>
+    <span class="reward-sparkles" aria-hidden="true"><i>✦</i><i>✦</i><i>✦</i></span>
+    <img class="hammer-art" src="./assets/hammer-soft.webp" width="78" height="88" alt="" draggable="false">
+    <strong>获得锤子</strong><span>×1</span>
+  </button>
+  <canvas id="mayhem-effects" aria-hidden="true"></canvas>
+  <div id="hammer-cursor" aria-hidden="true" hidden><img src="./assets/hammer-soft.webp" width="78" height="88" alt="" draggable="false"></div>
+  <div id="coffee-screen" class="coffee-screen" role="dialog" aria-modal="true" aria-label="歇会儿再砸" hidden>
+    <div class="coffee-card"><img class="coffee-art" src="./assets/coffee-paper.webp" width="160" height="184" alt="" draggable="false"><button id="coffee-reset" class="start-button coffee-reset">歇会儿再砸</button></div>
+  </div>
+  <script type="module" src="./game.js?v=brand-ten-1"></script>
 </body>
 </html>

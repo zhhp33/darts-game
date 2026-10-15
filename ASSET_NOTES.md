@@ -28,3 +28,7 @@ Use case: background-extraction. Edit target: supplied photograph of a man speak
 ## 大头头像提示词
 
 Use case: background-extraction. Edit target: supplied caricature portrait of a man with large head and glasses. Remove only the dark gray background to actual alpha transparency. Keep the exact original caricature head proportions, expression, glasses, hair, textures, lighting, and small body with dark shirt and visible collar unchanged. Do not turn the caricature into a normal photographic person, do not change facial identity, do not add objects or text. Keep full head including hair, neck, shirt collar and upper shoulders, with natural clean edges and a little transparent margin around the silhouette. Output a centered transparent-background cutout. No solid backdrop and no checkerboard baked in.
+
+## 锤子与休息纸杯
+
+- `dist/assets/hammer-soft.webp`、`dist/assets/coffee-paper.webp`：按用户确认的样式由图像生成工具制作并压缩为透明WebP，总计38,492字节。纸杯只有纯绿色圆标，无叶子或商标文字。

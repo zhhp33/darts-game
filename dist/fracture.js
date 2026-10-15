@@ -1,5 +1,35 @@
 // Unequal physical fragments around the actual impact, rather than radial slices.
 const TAU=Math.PI*2;
+// A fragment is removed as soon as it reaches the floor.
+export function fallingFragmentPose(shard,scene,time){
+  const {radius:r,width,height,origin,rotation=0}=scene,c=shard.center,scale=r/180,cos=Math.cos(rotation),sin=Math.sin(rotation),gravity=height*1.5;
+  const vx=(shard.vx*cos-shard.vy*sin)*scale,vy=(shard.vx*sin+shard.vy*cos)*scale,startX=origin.x+(c.x*cos-c.y*sin)*r,startY=origin.y+(c.x*sin+c.y*cos)*r;
+  const floor=height*.89+c.y*r*.03,landTime=Math.max(0,(-vy+Math.sqrt(vy*vy+2*gravity*Math.max(0,floor-startY)))/gravity),t=Math.max(0,time);
+  if(t>=landTime)return {landed:true};
+  const angle=rotation+shard.spin*t,tilt=Math.max(.28,Math.abs(Math.cos(shard.tilt*t))),a=Math.cos(angle),b=Math.sin(angle);
+  const vertices=shard.polygon.map(p=>{const dx=(p.x-c.x)*r*tilt,dy=(p.y-c.y)*r;return {x:dx*a-dy*b,y:dx*b+dy*a};});
+  const minX=Math.min(...vertices.map(p=>p.x)),maxX=Math.max(...vertices.map(p=>p.x)),minY=Math.min(...vertices.map(p=>p.y)),maxY=Math.max(...vertices.map(p=>p.y));
+  let x=startX+vx*t,y=startY+vy*t+.5*gravity*t*t;
+  x=Math.max(10-minX,Math.min(width-10-maxX,x));y=Math.max(10-minY,Math.min(height-12-maxY,y));
+  return {x,y,rotation:angle,tilt,landed:false,polygon:vertices.map(p=>({x:x+p.x,y:y+p.y}))};
+}
+// Surface cracks grow out of the strike; wood follows its vertical grain.
+export function makeSurfaceCracks(seed=1,material='wall'){
+  const rnd=random(seed),paths=[],wood=material==='wood',pattern=(seed>>>0)%4,arms=wood?4:[7,4,8,5][pattern],turn=rnd()*TAU;
+  for(let i=0;i<arms;i++){
+    let angle=wood?(i%2?Math.PI/2:-Math.PI/2)+(rnd()-.5)*.3:turn+i/arms*TAU+(rnd()-.5)*.5;
+    if(!wood&&pattern===1)angle=turn+(i%2?Math.PI:0)+(i<2?0:.6)+(rnd()-.5)*.2;
+    if(!wood&&pattern===3)angle=turn+(i/(arms-1)-.5)*Math.PI*1.2+(rnd()-.5)*.25;
+    const length=(.55+rnd()*.6)*(!wood&&pattern===1?(i<2?1.12:.58):1),path=[{x:0,y:0}];
+    for(let j=1;j<=5;j++){
+      const d=length*j/5,bend=(rnd()-.5)*(wood?.07:pattern===2?.25:.17);
+      path.push({x:Math.cos(angle)*d-Math.sin(angle)*bend,y:Math.sin(angle)*d+Math.cos(angle)*bend});
+    }
+    paths.push(path);
+    if(i%2===0){const p=path[2],branch=angle+(rnd()>.5?1:-1)*.65;paths.push([p,{x:p.x+Math.cos(branch)*length*.19,y:p.y+Math.sin(branch)*length*.19},{x:p.x+Math.cos(branch+.12)*length*.36,y:p.y+Math.sin(branch+.12)*length*.36}]);}
+  }
+  return paths;
+}
 function random(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
 // Each impact owns its geometry. Later hits never resize an earlier fissure.
 export function makeImpactCracks(hit,index){

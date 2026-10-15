@@ -65,7 +65,7 @@ try{
       const hit=await release(page,cdp,shots);assert.ok(Math.abs(hit.x-a.result.position.x)<1e-8&&Math.abs(hit.y-(a.result.position.y-2.6))<1e-8);
       const hitAngle=Math.atan2(hit.y,hit.x),delta=Math.atan2(Math.sin(hitAngle-angle),Math.cos(hitAngle-angle));assert.ok(Math.abs(delta)<=Math.PI/8+1e-8);assert.ok(Math.hypot(hit.x,hit.y)<=.98+1e-8);
       const breaking=sector%4===3,points=breaking?100:a.result.zone==='bull'?50:a.result.zone==='rim'?5:10;total+=points;assert.equal(hit.score,total);assert.equal(hit.damage,sector%4+1);
-      if(breaking){assert.equal(hit.text,'罗老师，别这样+100');await idle(page);assert.equal(await page.locator('#replace').getAttribute('data-portrait'),String(Math.floor(sector/4)+1));}
+      if(breaking){assert.equal(hit.text,'罗老师，别这样+100');await idle(page);assert.equal(await page.locator('#replace').getAttribute('data-portrait'),String(Math.floor(sector/4)+1));assert.equal(await page.locator('#game').getAttribute('data-swing-tier'),'1');await page.locator('#restart').click();await idle(page);shots=0;total=0;}
       else{await page.waitForTimeout(180);await screenshot(page,`${mobile?'mobile':'desktop'}-direction-${sector}`);}
     }
     checks.push(`${mobile?'Mobile':'Desktop'}: eight aimed sectors land on their real seeded trajectories, hide the guide, score correctly and shatter on the fourth hit`);
