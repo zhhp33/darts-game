@@ -7,14 +7,14 @@
   <meta name="description" content="瞄准，发射！拟物化弹弓飞镖小游戏，四次满力命中打碎靶盘，支持电脑和手机。">
   <title>弹弓飞镖 · 瞄准，发射！</title>
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
-  <link rel="stylesheet" href="./style.css?v=8">
+  <link rel="stylesheet" href="./style.css?v=copy-ticks-1">
 </head>
 <body>
   <main class="shell">
     <header class="masthead">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15"/><circle cx="20" cy="20" r="8"/><circle cx="20" cy="20" r="2"/><path d="M21 19 34 6m-6 0h6v6"/></svg></div>
-        <div><h1>弹弓飞镖</h1><p>THE SLINGSHOT CLUB</p></div>
+        <div><h1>弹弓飞镖</h1></div>
       </div>
       <div class="header-actions">
         <button id="sound" class="icon-button" aria-label="关闭声音" aria-pressed="true" title="关闭声音"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4 6 8H3v8h3l5 4V4Z"/><path class="sound-waves" d="M15 8c3 2 3 6 0 8m3-11c5 4 5 10 0 14"/></svg></button>
@@ -22,14 +22,14 @@
       </div>
     </header>
 
-    <section class="arena" aria-label="弹弓飞镖游戏">
-      <canvas id="game" aria-label="拖动屏幕下方弹弓，松手发射飞镖。也可以用方向键调整，空格键发射。" tabindex="0"></canvas>
+    <section class="arena" aria-label="弹弓飞镖游戏" data-intro="waiting">
+      <canvas id="game" aria-label="拖动屏幕下方弹弓，松手发射飞镖。也可以用方向键调整，空格键发射。" tabindex="-1"></canvas>
       <div class="scoreboard">
         <p class="eyebrow">总得分 <span>TOTAL SCORE</span></p>
         <div class="score-number" id="score">0</div>
         <div class="score-details"><span>投掷 <b id="shots">0</b></span><span>命中 <b id="accuracy">—</b></span></div>
       </div>
-      <div class="board-counter"><div><span class="live-dot"></span>盘上飞镖 <strong class="dart-count"><span id="darts">0</span><span>/12</span></strong></div></div>
+      <div class="board-counter"><div><span class="live-dot"></span>盘上飞镖 <strong class="dart-count"><span id="darts">0</span><span>/12</span></strong></div><div class="counter-ticks" id="ticks" aria-hidden="true"></div></div>
       <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
       <div class="power-panel">
         <div class="power-label"><span>拉弓力度</span><strong id="power-value">0<span>%</span></strong></div>
@@ -38,6 +38,7 @@
       </div>
       <div class="pull-hint" id="pull-hint"><svg viewBox="0 0 28 34" aria-hidden="true"><path d="M14 2v26M5 20l9 9 9-9"/></svg><span>往后拉，松手发射</span></div>
       <button id="replace" class="button replace-button" title="换个靶盘，切换头像样式"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8m-4-4h8"/></svg>换个靶盘</button>
+      <div class="start-screen" id="start-screen"><button class="start-button" id="start" disabled>开始</button></div>
       <div class="loading" id="loading">正在挂上靶盘…</div>
     </section>
 
@@ -46,6 +47,6 @@
     </footer>
     <noscript><p class="noscript">请开启浏览器的 JavaScript 来玩弹弓飞镖。</p></noscript>
   </main>
-  <script type="module" src="./game.js?v=direction-1-c2-fade-eighth-1-trp-slap-1"></script>
+  <script type="module" src="./game.js?v=start-1-cheer8-copy-ticks-mount-1"></script>
 </body>
 </html>

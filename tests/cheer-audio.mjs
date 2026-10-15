@@ -22,6 +22,7 @@ async function open(mobile=false,muted=false){
   },muted);
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(baseUrl);
   await page.waitForFunction(()=>document.querySelector('#loading').classList.contains('done'));
+  await page.locator('#start').click();await page.waitForFunction(()=>document.querySelector('#game').dataset.intro==='playing');
   assert.equal((await page.request.get(new URL('assets/human-cheer.wav',baseUrl).href)).status(),200);
   return {context,page,mobile};
 }
@@ -52,10 +53,10 @@ try{
     // Act before inspecting: the short cheer can finish during inspection calls.
     if(scenario.action)await session.page.locator('#'+scenario.action).click();
     const starts=await session.page.evaluate(()=>window.__cheer.starts);
-    if(!scenario.action)assert.equal(await session.page.locator('#feedback strong').textContent(),'理解万岁！');
+    if(!scenario.action)assert.equal(await session.page.locator('#feedback strong').textContent(),'理解万岁');
     if(scenario.muted)assert.deepEqual(starts,[]);
     else{
-      assert.equal(starts.length,1);assert.equal(starts[0].feedback,'理解万岁！');assert.equal(starts[0].state,'running');assert.ok(starts[0].duration>=1&&starts[0].duration<=2);
+      assert.equal(starts.length,1);assert.equal(starts[0].feedback,'理解万岁');assert.equal(starts[0].state,'running');assert.ok(starts[0].duration>=1&&starts[0].duration<=2);
       if(scenario.action)assert.equal(await session.page.evaluate(()=>window.__cheer.stops),1);
       else{await session.page.waitForFunction(()=>window.__cheer.ended===1);assert.equal(await session.page.evaluate(()=>window.__cheer.stops),0);}
     }

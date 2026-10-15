@@ -10,6 +10,7 @@ const browser=await chromium.launch({channel:'chrome',headless:true}),checks=[],
 async function ready(page){
   page.on('pageerror',e=>errors.push(e.message));await page.goto(baseUrl);
   await page.waitForFunction(()=>document.querySelector('#loading').classList.contains('done'));await page.waitForTimeout(280);
+  await page.locator('#start').click();await page.waitForFunction(()=>document.querySelector('#game').dataset.intro==='playing');
   await page.evaluate(async()=>{
     const script=document.querySelector('script[type=module]').src;
     window.__game=await import(script);window.__physics=await import(new URL('physics.js?v=direction-1',script).href);

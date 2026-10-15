@@ -2,7 +2,7 @@
 
 ## 插满12个飞镖的欢呼音效
 
-`dist/assets/human-cheer.wav` 采用用户确认的 C2：Zeraora 的 [Audience Clapping.wav](https://freesound.org/people/Zeraora/sounds/429422/)，录于 Fredericton Playhouse，包含观众欢呼与掌声，页面标注 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/429/429422_7347459-hq.mp3 。截取原录音0.2—2.0秒，共1.8秒；结尾0.6秒叠加余弦曲线淡出，终点降至静音，随后按用户要求连续三次将整段音量减半，最终为原淡出试听的12.5%，保存为48kHz、16位、双声道 WAV。在“理解万岁！”弹出时播放一次，并服从声音开关。最终独立试听保存在 `artifacts/cheer-options/keynote-style/C2-fade-eighth.wav`；原淡出试听及此前各次降音量试听保留。本次仅更新本地文件。
+`dist/assets/human-cheer.wav` 采用用户确认的 C2：Zeraora 的 [Audience Clapping.wav](https://freesound.org/people/Zeraora/sounds/429422/)，录于 Fredericton Playhouse，包含观众欢呼与掌声，页面标注 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) 许可。公开 HQ 试听源为 https://cdn.freesound.org/previews/429/429422_7347459-hq.mp3 。截取原录音0.2—2.0秒，共1.8秒；结尾0.6秒叠加余弦曲线淡出，终点降至静音。用户在10%和8%的试听之间确认采用8%，因此最终文件直接使用 `artifacts/cheer-options/keynote-style/C2-1p8s-volume8-preview.wav`，音量为原淡出试听的8%，保存为48kHz、16位、双声道 WAV；此版未做去口哨处理。在“理解万岁”弹出时播放一次，并服从声音开关。原淡出试听及此前各次试听保留在本地，不随网站或源码发布。
 
 ## 碎盘掌掴音效
 
