@@ -65,7 +65,7 @@ docs/                 玩法详解与开发说明
 | --- | --- |
 | 观众欢呼音效（`human-cheer.wav`） | 截取自 Zeraora 的 [Audience Clapping](https://freesound.org/people/Zeraora/sounds/429422/)，[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
 | 碎盘掌掴音效（`shatter-slap.wav`） | 截取自 TRP 的 [slaps, face, foley, 10](https://freesound.org/people/TRP/sounds/576961/)，[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) |
-| 锤子、咖啡纸杯、图标等 | 由图像生成工具制作，详见 [ASSET_NOTES.md](ASSET_NOTES.md) |
+| 锤子、咖啡纸杯、图标等 | 由图像生成工具制作 |
 | 靶盘头像（`portrait*.png`） | 含真人形象的素材，**不在 MIT 许可范围内**，见下文 |
 
 ## 许可证
