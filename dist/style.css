@@ -45,3 +45,4 @@
 @keyframes coffee-appear{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(pointer:coarse){:root{--hammer-width:66px;--hammer-height:75px}.hammer-mode,.hammer-mode button,.hammer-mode canvas{cursor:auto}}
 @media(prefers-reduced-motion:reduce){.reward-sparkles i,.hammer-art,.hammer-striking,.mayhem-hint,.coffee-card{animation:none!important}.object-fallen{transition:transform .12s!important}}
+.source-links{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;justify-content:center;pointer-events:none}.source-links a{padding:14px 8px 7px;color:#5d6b52;font-size:11px;line-height:1.4;text-decoration:underline;text-underline-offset:2px;pointer-events:auto}.source-links a:hover{color:#343c34}.source-links a:focus-visible{outline:3px solid #b24d2d;outline-offset:-3px}.arena:not([data-intro=waiting]) .source-links{display:none}
