@@ -46,3 +46,8 @@
 @media(pointer:coarse){:root{--hammer-width:66px;--hammer-height:75px}.hammer-mode,.hammer-mode button,.hammer-mode canvas{cursor:auto}}
 @media(prefers-reduced-motion:reduce){.reward-sparkles i,.hammer-art,.hammer-striking,.mayhem-hint,.coffee-card{animation:none!important}.object-fallen{transition:transform .12s!important}}
 .source-links{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;justify-content:center;pointer-events:none}.source-links a{padding:14px 8px 7px;color:#5d6b52;font-size:11px;line-height:1.4;text-decoration:underline;text-underline-offset:2px;pointer-events:auto}.source-links a:hover{color:#343c34}.source-links a:focus-visible{outline:3px solid #b24d2d;outline-offset:-3px}.arena:not([data-intro=waiting]) .source-links{display:none}
+.share-button{background:#c65335;border:1px solid #ad452d;color:#fff7e8;box-shadow:0 3px 0 #a73e28;animation:share-appear .3s ease-out}.share-button:hover{background:#d35c3c}.share-button:active{box-shadow:0 1px 0 #a73e28;transform:translateY(2px)}.share-button[hidden],.coffee-share[hidden]{display:none}
+.coffee-card{gap:14px}.coffee-art{margin-bottom:10px}.coffee-share{width:220px;max-width:100%;min-height:44px;font-size:15px}
+@keyframes share-appear{from{opacity:0;transform:translateY(-4px) scale(.94)}to{opacity:1;transform:none}}
+.score-head{display:flex;align-items:baseline;gap:16px}.best-score{margin:0;font-size:11px;font-weight:600;letter-spacing:1px;color:#747e68;white-space:nowrap}.best-score b{padding-left:3px;color:#4e5a45;font-variant-numeric:tabular-nums}
+@media(max-width:600px){.score-head{gap:10px}.best-score{font-size:9px}}

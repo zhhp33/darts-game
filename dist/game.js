@@ -5,11 +5,12 @@ import {BREAKABLES,createMayhemState,strikeMayhem,ropeFallMode} from './mayhem.j
 import {createMayhemView} from './mayhem-view.js?v=brand-ten-1';
 import {createDamageStamp,createDamageLayer} from './damage-view.js?v=4';
 import {slingPartPoses} from './sling-motion.js?v=2';
+import {cropScene,prepareShareCard,shareCard} from './share.js?v=4';
 
 const canvas=document.querySelector('#game');
 const ctx=canvas.getContext('2d',{alpha:false});
 const arena=canvas.closest('.arena');
-const ui=Object.fromEntries(['score','shots','accuracy','darts','ticks','feedback','power-value','power-fill','power-hint','pull-hint','replace','restart','sound','loading','start','start-screen'].map(id=>[id,document.getElementById(id)]));
+const ui=Object.fromEntries(['score','shots','accuracy','darts','ticks','feedback','power-value','power-fill','power-hint','pull-hint','replace','restart','sound','loading','start','start-screen','share','coffee-share','best'].map(id=>[id,document.getElementById(id)]));
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const entranceDuration=reducedMotion?.12:.75;
 let intro='waiting',entranceAt=0,startPending=false,startAttempt=0,startTimer=null;
@@ -28,8 +29,10 @@ let slingHammerCracks=[],hammerShatter=null,hammerFall=null,endingAt=0,hammerSee
 const activeSounds=new Set();let outputGain=null;
 const mayhemView=createMayhemView({reducedMotion,onStrike:hammerStrike,onCollect:collectHammer,onReset:resetMayhem,onCancel:()=>{needsRedraw=true;}});
 let wallHoles=[];
+let best=0,previousBest=0,captureBest=false,eventShare=null,bestShare=null,coffeeShare=null,eventToken=0,bestToken=0,coffeeToken=0,shareToken=0;
 for(let i=0;i<CONFIG.dartLimit;i++)ui.ticks.append(document.createElement('i'));
 try{soundEnabled=localStorage.getItem('slingshot-sound')!=='off';}catch{}
+try{best=previousBest=Math.max(0,Number(localStorage.getItem('slingshot-best'))||0);}catch{}
 try{const saved=JSON.parse(localStorage.getItem('slingshot-wall-holes')||'[]');if(Array.isArray(saved))wallHoles=saved.filter(h=>Number.isFinite(h.x)&&Number.isFinite(h.y)&&Number.isFinite(h.seed)&&h.size>0&&h.size<.2);}catch{}
 const portraitStyles=[
   {name:'经典头像',file:'portrait-classic-square.png'},
@@ -104,6 +107,12 @@ function resize(){
   const origin=project({x:0,y:1.45,z:0});view.sx=origin.x;view.sy=origin.y;view.maxPull=Math.min(view.maxPull,height-view.sy-42);
   ui['start-screen'].style.setProperty('--start-y',`${view.sy}px`);
   ui.feedback.style.top=`${cy+radius*.96}px`;
+  // Resizing clears the canvas to black; repaint before the browser shows that frame.
+  drawScene();
+}
+function drawScene(dt=0){
+  if(!canvas.width||!canvas.height)return false;
+  drawBackground();drawMount();drawBoard();drawTrajectory();drawFlight();drawEffects(dt);drawHammerFragments();drawSling();needsRedraw=false;return true;
 }
 function project(p){const scale=24/(16+p.z);return {x:view.cx+p.x*view.radius*scale,y:view.cy-(p.y-CONFIG.boardY)*view.radius*scale,scale};}
 
@@ -235,7 +244,7 @@ function hammerStrike(point){
 }
 function resetMayhem(){
   const restoreSound=mayhem.soundBefore;soundEpoch++;stopAllSounds();
-  mayhem=createMayhemState();mayhemView.restore();boardHammerDamage.clear();slingHammerCracks=[];hammerShatter=null;hammerFall=null;endingAt=0;hammerLayoutUntil=0;slingBreak=null;
+  mayhem=createMayhemState();mayhemView.restore();coffeeShare=null;coffeeToken=++shareToken;ui['coffee-share'].hidden=true;boardHammerDamage.clear();slingHammerCracks=[];hammerShatter=null;hammerFall=null;endingAt=0;hammerLayoutUntil=0;slingBreak=null;
   soundEnabled=restoreSound;audioUnlocked=false;updateSoundButton();freshBoard(true);if(soundEnabled)unlockAudio(true);canvas.focus({preventScroll:true});
 }
 
@@ -452,7 +461,7 @@ function drawEffects(dt){
 
 function updateHud(){
   needsRedraw=true;
-  ui.score.textContent=state.score;ui.shots.textContent=state.shots;ui.accuracy.textContent=state.shots?`${Math.round(state.hits/state.shots*100)}%`:'—';ui.darts.textContent=state.darts.length;
+  ui.score.textContent=state.score;ui.shots.textContent=state.shots;ui.accuracy.textContent=accuracyText();ui.best.textContent=best;ui.darts.textContent=state.darts.length;
   [...ui.ticks.children].forEach((tick,i)=>tick.classList.toggle('filled',i<state.darts.length));
   const force=mayhem.damaged.includes('power')?1:state.phase==='aiming'?clamp(Math.hypot(pull.dx,pull.dy)/view.maxPull*CONFIG.maxForce,0,CONFIG.maxForce):0;
   if(mayhem.mode==='normal'&&state.phase==='aiming'&&force>=CONFIG.smashForce&&!fullBuzzed){fullBuzzed=true;if(!reducedMotion){try{navigator.vibrate?.(18);}catch{}}}
@@ -467,7 +476,32 @@ function updateHud(){
   ui.start.disabled=!loaded||startPending;ui.start.setAttribute('aria-busy',String(startPending));
   ui.restart.disabled=!loaded||intro!=='playing';
   ui.replace.disabled=!loaded||intro!=='playing'||state.phase!=='ready';
+  ui.share.hidden=!(eventShare||bestShare)||mayhem.mode!=='normal'||intro!=='playing';
   ui['pull-hint'].style.opacity=intro==='playing'&&state.phase==='ready'&&state.shots<3?'1':'0';
+}
+function accuracyText(){return state.shots?`${Math.round(state.hits/state.shots*100)}%`:'—';}
+function shareStats(){return {score:state.score,shots:state.shots,accuracy:accuracyText()};}
+// The smash card lasts until the next shot; the best card lasts until the score is cleared.
+function prepareShare(kind,scene){
+  const token=++shareToken;if(kind==='best')bestToken=token;else eventToken=token;
+  prepareShareCard(kind,{scene,...shareStats()}).then(card=>{
+    if(kind==='best'){if(token===bestToken)bestShare=card;}else if(token===eventToken)eventShare=card;
+    updateHud();
+  });
+}
+function clearShares(){eventShare=bestShare=null;eventToken=bestToken=++shareToken;captureBest=false;previousBest=best;}
+function boardSnapshot(){
+  const out=document.createElement('canvas');out.width=out.height=1024;const g=out.getContext('2d');g.drawImage(board,0,0);
+  g.save();g.beginPath();g.arc(512,512,480,0,Math.PI*2);g.clip();boardHammerDamage.paint(g,0,0,1024,1024);g.restore();return out;
+}
+function prepareCoffeeShare(){
+  const token=coffeeToken=++shareToken;coffeeShare=null;ui['coffee-share'].hidden=true;
+  prepareShareCard('coffee',{board:boardSnapshot(),...shareStats()}).then(card=>{if(coffeeToken!==token||mayhem.mode!=='coffee')return;coffeeShare=card;ui['coffee-share'].hidden=false;});
+}
+async function runShare(card,saved){
+  if(!card)return;
+  const result=await shareCard(card);
+  if(result==='saved'||result==='saved-image')saved(result==='saved');
 }
 function showFeedback(head,text,impact=false,duration=1.45,badge=''){
   ui.feedback.replaceChildren();const strong=document.createElement('strong');strong.textContent=head;ui.feedback.append(strong,document.createTextNode(text));if(badge){const small=document.createElement('small');small.textContent=badge;ui.feedback.append(small);}ui.feedback.className=`feedback visible${impact?' impact':''}`;feedbackUntil=clock+duration;
@@ -546,6 +580,8 @@ function startGame(){
   Promise.resolve(ready).then(finish,()=>finish(false));
 }
 ui.start.addEventListener('click',startGame);
+ui.share.addEventListener('click',()=>runShare(eventShare||bestShare,copied=>showFeedback('战绩图已保存',copied?'文案已复制':'',false,2.4)));
+ui['coffee-share'].addEventListener('click',()=>runShare(coffeeShare,copied=>{const button=ui['coffee-share'];button.textContent=copied?'已保存，文案已复制':'已保存';setTimeout(()=>{button.textContent='分享';},2400);}));
 function stopCheer(){if(cheerSource){activeSounds.delete(cheerSource);try{cheerSource.stop();}catch{}cheerSource=null;}}
 function playSound(kind){
   if(!soundEnabled||!audio)return;
@@ -621,7 +657,7 @@ function limitPull(dx,dy){return constrainPull(dx,dy,view,width,height);}
 function launch(){
   if(state.phase!=='aiming'||!loaded||intro!=='playing'||mayhem.mode!=='normal')return;
   if(Math.hypot(pull.dx,pull.dy)<3){cancelAim();return;}
-  const shot=currentShot();flight={shot,result:resolveFlight(shot),time:0};
+  const shot=currentShot();flight={shot,result:resolveFlight(shot),time:0};eventShare=null;eventToken=++shareToken;
   state.phase='flying';pull={dx:0,dy:0};if(fullBuzzed&&!reducedMotion){try{navigator.vibrate?.(0);}catch{}}fullBuzzed=false;reboundAt=clock;playSound('release');updateHud();
 }
 function eventPoint(e){const rect=canvas.getBoundingClientRect();return {x:(e.clientX-rect.left)*width/rect.width,y:(e.clientY-rect.top)*height/rect.height};}
@@ -670,7 +706,7 @@ function freshBoard(clearScore=false,cyclePortrait=false){
   if(intro!=='playing'||mayhem.mode!=='normal')return;
   soundEpoch++;
   stopAllSounds();mayhemView.hideReward();
-  cancelAim();cancelBoardPointer();if(clearScore)state=createGameState();else replaceBoard(state);
+  cancelAim();cancelBoardPointer();if(clearScore){state=createGameState();clearShares();}else replaceBoard(state);
   if(cyclePortrait){portraitIndex=(portraitIndex+1)%portraitStyles.length;buildTextures();}
   flight=null;effect=null;particles=[];pull={dx:0,dy:0};shakeUntil=0;feedbackUntil=0;ui.feedback.replaceChildren();ui.feedback.className='feedback';state.phase='replacing';replaceUntil=clock+.35;motion=createBoardMotion(state.swingTier,replaceUntil);updateHud();
 }
@@ -687,6 +723,10 @@ function frame(now){
         const impactAt=clock-(flight.time-flight.result.time),pose=currentBoardPose(impactAt),wasDestroying=!!effect;
         const result=resolveFlight(flight.shot,poseInWorld(pose,view,!effect));flight=null;const outcome=applyResult(state,result);if(wasDestroying)state.phase='destroying';
         if(outcome.shake)shakeUntil=clock+.16;recordWallHole(result);spawnDust(result.position,outcome.kind);playSound(outcome.kind==='smash'?'smash':result.force+1e-9>=CONFIG.smashForce?'full-impact':outcome.kind);
+        const record=state.score>previousBest;if(state.score>best){best=state.score;try{localStorage.setItem('slingshot-best',String(best));}catch{}}
+        // The canvas still holds the frame before impact, so the board is whole in the card.
+        if(outcome.kind==='smash'||outcome.kind==='drop'){const scene=cropScene(canvas,view,width);if(outcome.kind==='smash')prepareShare('smash',scene);if(record)prepareShare('best',scene);}
+        else if(record)captureBest=true;
         const cup=result.zone==='bull'?'特大杯':result.zone==='rim'?'中杯':'大杯';
         if(outcome.kind==='smash'){beginDestruction('smash');showFeedback('罗老师，别这样',`+${outcome.points}`,true,1.9);}
         else if(outcome.kind==='drop'){beginDestruction('drop');showFeedback('理解万岁',`+${outcome.points}`,true,1.9);playSound('cheer');}
@@ -698,12 +738,13 @@ function frame(now){
     }
     if(effect){effect.time+=dt;if(effect.time>=effect.duration){freshBoard(false,true);}}
     if(state.phase==='replacing'&&clock>=replaceUntil){state.phase='ready';updateHud();}
-    if(mayhem.mode==='ending'&&clock-endingAt>=(reducedMotion?.2:slingBreak?.9:.5)){mayhem.mode='coffee';mayhemView.showCoffee();updateHud();}
+    if(mayhem.mode==='ending'&&clock-endingAt>=(reducedMotion?.2:slingBreak?.9:.5)){mayhem.mode='coffee';mayhemView.showCoffee();prepareCoffeeShare();updateHud();}
     if(feedbackUntil&&clock>feedbackUntil){ui.feedback.className='feedback';feedbackUntil=0;}
     const pose=currentBoardPose();
     const hammerAnimating=mayhem.mode!=='normal'&&(clock<hammerLayoutUntil||(slingBreak&&!slingBreak.landed)||(hammerShatter&&!hammerShatter.complete)||(hammerFall&&!hammerFall.complete)||(mayhem.mode==='hammer'&&BREAKABLES.length-mayhem.damaged.length<=3));
     const animating=intro==='entering'||flight||effect||particles.length||state.phase!=='ready'||clock<shakeUntil||clock-reboundAt<.35||motionIsActive(motion,clock)||boardPointer||hammerAnimating;
-    if(needsRedraw||animating){drawBackground();drawMount();drawBoard();drawTrajectory();drawFlight();drawEffects(dt);drawHammerFragments();drawSling();if(hammerFall&&pose.landed)hammerFall.complete=true;needsRedraw=false;}
+    if((needsRedraw||animating)&&drawScene(dt)&&hammerFall&&pose.landed)hammerFall.complete=true;
+    if(captureBest){captureBest=false;prepareShare('best',cropScene(canvas,view,width));}
     canvas.dataset.boardX=String(pose.x);canvas.dataset.boardY=String(pose.y);canvas.dataset.boardScale=String(pose.scale||1);canvas.dataset.boardRotation=String(pose.rotation);canvas.dataset.phase=state.phase;canvas.dataset.boardState=hammerShatter?'shattered':hammerFall?'whole':'hanging';canvas.dataset.boardLanded=String(!!pose.landed);
     if(mayhem.mode!=='normal'||mayhemView.rewardOpen){const rect=canvas.getBoundingClientRect();mayhemView.frame(clock,{x:rect.x+pose.x,y:rect.y+pose.y+view.radius*.65},BREAKABLES.filter(id=>!mayhem.damaged.includes(id)||(id==='sling'&&mayhem.slingStrikes<2)));}
   }
